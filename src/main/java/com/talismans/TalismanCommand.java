@@ -6,8 +6,6 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
@@ -31,16 +29,18 @@ public class TalismanCommand implements CommandExecutor {
         
         Player p = (Player) sender;
         
-        if (!p.hasPermission("talismans.admin")) {
-            p.sendMessage(ChatColor.RED + "Нет прав!");
+        if (!p.isOp()) {
+            p.sendMessage(ChatColor.RED + "Нет прав! Требуется OP.");
             return true;
         }
         
         if (args.length == 0) {
             p.sendMessage(ChatColor.YELLOW + "Команды:");
-            p.sendMessage(ChatColor.GRAY + "/talisman list" + ChatColor.WHITE + " - список талисманов");
-            p.sendMessage(ChatColor.GRAY + "/talisman give <id> <игрок>" + ChatColor.WHITE + " - выдать талисман");
-            p.sendMessage(ChatColor.GRAY + "/talisman create <id> <название>" + ChatColor.WHITE + " - создать талисман");
+            p.sendMessage(ChatColor.GRAY + "/talisman create <id> <название> <материал> <эффект> <уровень>");
+            p.sendMessage(ChatColor.GRAY + "/talisman give <id> <игрок>");
+            p.sendMessage(ChatColor.GRAY + "/talisman list");
+            p.sendMessage(ChatColor.GRAY + "Пример: /talisman create speed1 &aСкорость DIAMOND SPEED 2");
+            p.sendMessage(ChatColor.GRAY + "Доступные эффекты: SPEED, STRENGTH, REGENERATION, NIGHT_VISION, JUMP");
             return true;
         }
         
@@ -52,12 +52,43 @@ public class TalismanCommand implements CommandExecutor {
             return true;
         }
         
+        if (args[0].equalsIgnoreCase("create") && args.length >= 6) {
+            String id = args[1];
+            String name = args[2].replace("&", "§");
+            String material = args[3].toUpperCase();
+            String effectType = args[4].toUpperCase();
+            int level = Integer.parseInt(args[5]) - 1;
+            
+            if (plugin.getTalismans().containsKey(id)) {
+                p.sendMessage(ChatColor.RED + "Талисман с таким ID уже существует!");
+                return true;
+            }
+            
+            if (Material.getMaterial(material) == null) {
+                p.sendMessage(ChatColor.RED + "Неверный материал! Пример: DIAMOND, GOLD_INGOT, NETHER_STAR");
+                return true;
+            }
+            
+            PotionEffectType type = PotionEffectType.getByName(effectType);
+            if (type == null) {
+                p.sendMessage(ChatColor.RED + "Неверный эффект! Доступны: SPEED, STRENGTH, REGENERATION, NIGHT_VISION, JUMP");
+                return true;
+            }
+            
+            List<PotionEffect> effects = new ArrayList<>();
+            effects.add(new PotionEffect(type, Integer.MAX_VALUE, level, true, false));
+            
+            plugin.saveTalisman(id, name, material, id, effects);
+            p.sendMessage(ChatColor.GREEN + "Талисман " + id + " создан! Используй /talisman give " + id + " <игрок>");
+            return true;
+        }
+        
         if (args[0].equalsIgnoreCase("give") && args.length >= 3) {
             String id = args[1];
             Player target = plugin.getServer().getPlayer(args[2]);
             
             if (!plugin.getTalismans().containsKey(id)) {
-                p.sendMessage(ChatColor.RED + "Талисман не найден!");
+                p.sendMessage(ChatColor.RED + "Талисман не найден! Используй /talisman list");
                 return true;
             }
             
@@ -66,50 +97,12 @@ public class TalismanCommand implements CommandExecutor {
                 return true;
             }
             
-            Talisman talisman = plugin.getTalismans().get(id);
-            ItemStack item = new ItemStack(Material.getMaterial(talisman.getMaterial()));
-            ItemMeta meta = item.getItemMeta();
-            meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', talisman.getName()));
-            
-            List<String> lore = new ArrayList<>();
-            lore.add(talisman.getLore());
-            for (PotionEffect effect : talisman.getEffects()) {
-                lore.add(ChatColor.GRAY + "Эффект: " + effect.getType().getName() + " " + (effect.getAmplifier() + 1));
-            }
-            meta.setLore(lore);
-            item.setItemMeta(meta);
-            
-            target.getInventory().addItem(item);
-            p.sendMessage(ChatColor.GREEN + "Талисман выдан!");
+            plugin.giveTalisman(target, id);
+            p.sendMessage(ChatColor.GREEN + "Талисман выдан игроку " + target.getName());
             return true;
         }
         
-        if (args[0].equalsIgnoreCase("create") && args.length >= 2) {
-            String id = args[1];
-            
-            if (plugin.getTalismans().containsKey(id)) {
-                p.sendMessage(ChatColor.RED + "Талисман с таким ID уже существует!");
-                return true;
-            }
-            
-            ItemStack itemInHand = p.getInventory().getItemInMainHand();
-            if (itemInHand.getType() == Material.AIR) {
-                p.sendMessage(ChatColor.RED + "Возьми предмет в руку!");
-                return true;
-            }
-            
-            String name = args.length >= 3 ? args[2].replace("&", "§") : "&aТалисман";
-            
-            List<PotionEffect> effects = new ArrayList<>();
-            effects.add(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 1, true, false));
-            
-            Talisman talisman = new Talisman(name, itemInHand.getType().name(), id, effects);
-            plugin.saveTalisman(id, talisman);
-            
-            p.sendMessage(ChatColor.GREEN + "Талисман создан! Используй /talisman give " + id + " <игрок>");
-            return true;
-        }
-        
+        p.sendMessage(ChatColor.RED + "Неверная команда! Используй /talisman");
         return true;
     }
 }
