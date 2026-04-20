@@ -4,8 +4,5 @@ main: com.talismans.Main
 api-version: 1.21
 commands:
   talisman:
-    description: Управление талисманами
+    description: Главная команда плагина
     usage: /talisman
-permissions:
-  talismans.admin:
-    default: op
