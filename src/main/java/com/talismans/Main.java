@@ -13,6 +13,10 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.CommandExecutor;
 
 import java.io.File;
 import java.util.*;
@@ -27,13 +31,12 @@ public class Main extends JavaPlugin implements Listener {
         saveDefaultConfig();
         getServer().getPluginManager().registerEvents(this, this);
         loadTalismans();
-        getCommand("talisman").setExecutor(new TalismanCommand(this));
+        Objects.requireNonNull(getCommand("talisman")).setExecutor(new TalismanCommand(this));
         getLogger().info("TalismansPlugin включен!");
     }
     
     @Override
     public void onDisable() {
-        // Снимаем все эффекты со всех игроков
         for (UUID uuid : activeEffects.keySet()) {
             Player p = Bukkit.getPlayer(uuid);
             if (p != null) {
@@ -88,7 +91,7 @@ public class Main extends JavaPlugin implements Listener {
         
         ItemStack item = p.getInventory().getItem(event.getNewSlot());
         if (item != null && item.hasItemMeta() && item.getItemMeta().hasLore()) {
-            String lore = item.getItemMeta().getLore().get(0);
+            String lore = Objects.requireNonNull(item.getItemMeta().getLore()).get(0);
             for (Talisman talisman : talismans.values()) {
                 if (talisman.getLore().equals(lore)) {
                     addEffects(p, talisman);
@@ -100,8 +103,17 @@ public class Main extends JavaPlugin implements Listener {
     
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
-        // Проверяем что в руке при заходе
-        onItemHeld(new PlayerItemHeldEvent(event.getPlayer(), 0, event.getPlayer().getInventory().getHeldItemSlot()));
+        Player p = event.getPlayer();
+        ItemStack item = p.getInventory().getItemInMainHand();
+        if (item != null && item.hasItemMeta() && item.getItemMeta().hasLore()) {
+            String lore = Objects.requireNonNull(item.getItemMeta().getLore()).get(0);
+            for (Talisman talisman : talismans.values()) {
+                if (talisman.getLore().equals(lore)) {
+                    addEffects(p, talisman);
+                    break;
+                }
+            }
+        }
     }
     
     private void removeEffects(Player p) {
@@ -135,7 +147,7 @@ class Talisman {
     private List<PotionEffect> effects;
     
     public Talisman(ConfigurationSection section) {
-        this.name = section.getString("name");
+        this.name = ChatColor.translateAlternateColorCodes('&', section.getString("name"));
         this.material = section.getString("material");
         this.lore = section.getString("lore");
         this.effects = new ArrayList<>();
@@ -145,7 +157,9 @@ class Talisman {
             String[] parts = effectStr.split(":");
             PotionEffectType type = PotionEffectType.getByName(parts[0]);
             int amplifier = Integer.parseInt(parts[1]);
-            effects.add(new PotionEffect(type, Integer.MAX_VALUE, amplifier, true, false));
+            if (type != null) {
+                effects.add(new PotionEffect(type, Integer.MAX_VALUE, amplifier, true, false));
+            }
         }
     }
     
