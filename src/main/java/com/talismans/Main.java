@@ -12,14 +12,13 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandSender;
-import org.bukkit.command.CommandExecutor;
 
 import java.io.File;
 import java.util.*;
+import java.util.UUID;
 
 public class Main extends JavaPlugin implements Listener {
     
@@ -31,7 +30,9 @@ public class Main extends JavaPlugin implements Listener {
         saveDefaultConfig();
         getServer().getPluginManager().registerEvents(this, this);
         loadTalismans();
-        Objects.requireNonNull(getCommand("talisman")).setExecutor(new TalismanCommand(this));
+        if (getCommand("talisman") != null) {
+            getCommand("talisman").setExecutor(new TalismanCommand(this));
+        }
         getLogger().info("TalismansPlugin включен!");
     }
     
@@ -56,7 +57,11 @@ public class Main extends JavaPlugin implements Listener {
         FileConfiguration config = YamlConfiguration.loadConfiguration(file);
         
         for (String key : config.getKeys(false)) {
-            talismans.put(key, new Talisman(config.getConfigurationSection(key)));
+            try {
+                talismans.put(key, new Talisman(config.getConfigurationSection(key)));
+            } catch (Exception e) {
+                getLogger().warning("Ошибка загрузки талисмана " + key + ": " + e.getMessage());
+            }
         }
         getLogger().info("Загружено " + talismans.size() + " талисманов");
     }
@@ -91,11 +96,14 @@ public class Main extends JavaPlugin implements Listener {
         
         ItemStack item = p.getInventory().getItem(event.getNewSlot());
         if (item != null && item.hasItemMeta() && item.getItemMeta().hasLore()) {
-            String lore = Objects.requireNonNull(item.getItemMeta().getLore()).get(0);
-            for (Talisman talisman : talismans.values()) {
-                if (talisman.getLore().equals(lore)) {
-                    addEffects(p, talisman);
-                    break;
+            List<String> lore = item.getItemMeta().getLore();
+            if (lore != null && !lore.isEmpty()) {
+                String loreLine = lore.get(0);
+                for (Talisman talisman : talismans.values()) {
+                    if (talisman.getLore().equals(loreLine)) {
+                        addEffects(p, talisman);
+                        break;
+                    }
                 }
             }
         }
@@ -106,11 +114,14 @@ public class Main extends JavaPlugin implements Listener {
         Player p = event.getPlayer();
         ItemStack item = p.getInventory().getItemInMainHand();
         if (item != null && item.hasItemMeta() && item.getItemMeta().hasLore()) {
-            String lore = Objects.requireNonNull(item.getItemMeta().getLore()).get(0);
-            for (Talisman talisman : talismans.values()) {
-                if (talisman.getLore().equals(lore)) {
-                    addEffects(p, talisman);
-                    break;
+            List<String> lore = item.getItemMeta().getLore();
+            if (lore != null && !lore.isEmpty()) {
+                String loreLine = lore.get(0);
+                for (Talisman talisman : talismans.values()) {
+                    if (talisman.getLore().equals(loreLine)) {
+                        addEffects(p, talisman);
+                        break;
+                    }
                 }
             }
         }
@@ -147,18 +158,20 @@ class Talisman {
     private List<PotionEffect> effects;
     
     public Talisman(ConfigurationSection section) {
-        this.name = ChatColor.translateAlternateColorCodes('&', section.getString("name"));
-        this.material = section.getString("material");
-        this.lore = section.getString("lore");
+        this.name = ChatColor.translateAlternateColorCodes('&', section.getString("name", "&aТалисман"));
+        this.material = section.getString("material", "DIAMOND");
+        this.lore = section.getString("lore", "talisman_" + System.currentTimeMillis());
         this.effects = new ArrayList<>();
         
         List<String> effectsList = section.getStringList("effects");
         for (String effectStr : effectsList) {
             String[] parts = effectStr.split(":");
-            PotionEffectType type = PotionEffectType.getByName(parts[0]);
-            int amplifier = Integer.parseInt(parts[1]);
-            if (type != null) {
-                effects.add(new PotionEffect(type, Integer.MAX_VALUE, amplifier, true, false));
+            if (parts.length == 2) {
+                PotionEffectType type = PotionEffectType.getByName(parts[0]);
+                if (type != null) {
+                    int amplifier = Integer.parseInt(parts[1]);
+                    effects.add(new PotionEffect(type, Integer.MAX_VALUE, amplifier, true, false));
+                }
             }
         }
     }
