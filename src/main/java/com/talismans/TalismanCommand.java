@@ -13,7 +13,6 @@ import org.bukkit.potion.PotionEffectType;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 public class TalismanCommand implements CommandExecutor {
     
@@ -26,7 +25,7 @@ public class TalismanCommand implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage("Только для игроков!");
+            sender.sendMessage(ChatColor.RED + "Только для игроков!");
             return true;
         }
         
@@ -85,32 +84,26 @@ public class TalismanCommand implements CommandExecutor {
             return true;
         }
         
-        if (args[0].equalsIgnoreCase("create") && args.length >= 3) {
+        if (args[0].equalsIgnoreCase("create") && args.length >= 2) {
             String id = args[1];
-            String name = args[2].replace("&", "§");
             
             if (plugin.getTalismans().containsKey(id)) {
                 p.sendMessage(ChatColor.RED + "Талисман с таким ID уже существует!");
                 return true;
             }
             
-            ItemStack item = p.getInventory().getItemInMainHand();
-            if (item.getType() == Material.AIR) {
+            ItemStack itemInHand = p.getInventory().getItemInMainHand();
+            if (itemInHand.getType() == Material.AIR) {
                 p.sendMessage(ChatColor.RED + "Возьми предмет в руку!");
                 return true;
             }
             
-            p.sendMessage(ChatColor.GREEN + "Создание талисмана " + name);
-            p.sendMessage(ChatColor.YELLOW + "Напиши в чат эффекты через запятую:");
-            p.sendMessage(ChatColor.GRAY + "Доступные: SPEED, STRENGTH, REGENERATION, NIGHT_VISION, LUCK, JUMP, FIRE_RESISTANCE, WATER_BREATHING");
-            p.sendMessage(ChatColor.GRAY + "Пример: SPEED:2,STRENGTH:1");
+            String name = args.length >= 3 ? args[2].replace("&", "§") : "&aТалисман";
             
-            // TODO: GUI или чат ввод для выбора эффектов
-            // Пока создаём простой талисман со скоростью
             List<PotionEffect> effects = new ArrayList<>();
             effects.add(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 1, true, false));
             
-            Talisman talisman = new Talisman(name, item.getType().name(), id, effects);
+            Talisman talisman = new Talisman(name, itemInHand.getType().name(), id, effects);
             plugin.saveTalisman(id, talisman);
             
             p.sendMessage(ChatColor.GREEN + "Талисман создан! Используй /talisman give " + id + " <игрок>");
