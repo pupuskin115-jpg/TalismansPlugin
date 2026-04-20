@@ -1,0 +1,8 @@
+# Пример талисмана
+example:
+  name: "&bПример талисмана"
+  material: DIAMOND
+  lore: "example_talisman"
+  effects:
+    - "SPEED:1"
+    - "STRENGTH:1"
