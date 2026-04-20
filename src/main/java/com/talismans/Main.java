@@ -36,16 +36,12 @@ public class Main extends JavaPlugin implements Listener {
             Player p = (Player) sender;
             
             if (!p.isOp()) {
-                p.sendMessage(ChatColor.RED + "Нет прав!");
+                p.sendMessage(ChatColor.RED + "Нет прав! Требуется OP.");
                 return true;
             }
             
             if (args.length == 0) {
-                p.sendMessage(ChatColor.YELLOW + "Команды:");
-                p.sendMessage(ChatColor.GRAY + "/talisman create <id> <название> <материал> <эффект> <уровень>");
-                p.sendMessage(ChatColor.GRAY + "/talisman give <id> <игрок>");
-                p.sendMessage(ChatColor.GRAY + "/talisman list");
-                p.sendMessage(ChatColor.GRAY + "Пример: /talisman create speed &aСкорость DIAMOND SPEED 2");
+                sendHelp(p);
                 return true;
             }
             
@@ -62,33 +58,43 @@ public class Main extends JavaPlugin implements Listener {
             }
             
             if (args[0].equalsIgnoreCase("create") && args.length >= 6) {
-                String id = args[1];
-                String name = args[2].replace("&", "§");
-                String material = args[3].toUpperCase();
-                String effectType = args[4].toUpperCase();
-                int level = Integer.parseInt(args[5]) - 1;
-                
-                if (talismans.containsKey(id)) {
-                    p.sendMessage(ChatColor.RED + "Талисман с таким ID уже существует!");
-                    return true;
+                try {
+                    String id = args[1];
+                    String name = args[2].replace("&", "§");
+                    String material = args[3].toUpperCase();
+                    String effectType = args[4].toUpperCase();
+                    int level = Integer.parseInt(args[5]) - 1;
+                    
+                    if (talismans.containsKey(id)) {
+                        p.sendMessage(ChatColor.RED + "Талисман с таким ID уже существует!");
+                        return true;
+                    }
+                    
+                    if (Material.getMaterial(material) == null) {
+                        p.sendMessage(ChatColor.RED + "Неверный материал! Пример: DIAMOND, GOLD_INGOT, NETHER_STAR");
+                        return true;
+                    }
+                    
+                    PotionEffectType type = PotionEffectType.getByName(effectType);
+                    if (type == null) {
+                        p.sendMessage(ChatColor.RED + "Неверный эффект! Доступны: SPEED, STRENGTH, REGENERATION, NIGHT_VISION, JUMP, FIRE_RESISTANCE");
+                        return true;
+                    }
+                    
+                    if (level < 0) level = 0;
+                    if (level > 10) level = 10;
+                    
+                    List<PotionEffect> effects = new ArrayList<>();
+                    effects.add(new PotionEffect(type, Integer.MAX_VALUE, level, true, false));
+                    
+                    saveTalisman(id, name, material, id, effects);
+                    p.sendMessage(ChatColor.GREEN + "✓ Талисман " + id + " создан!");
+                    p.sendMessage(ChatColor.GRAY + "Выдать: /talisman give " + id + " <игрок>");
+                    
+                } catch (NumberFormatException e) {
+                    p.sendMessage(ChatColor.RED + "Ошибка: уровень эффекта должен быть числом!");
+                    sendHelp(p);
                 }
-                
-                if (Material.getMaterial(material) == null) {
-                    p.sendMessage(ChatColor.RED + "Неверный материал! Пример: DIAMOND, GOLD_INGOT, NETHER_STAR");
-                    return true;
-                }
-                
-                PotionEffectType type = PotionEffectType.getByName(effectType);
-                if (type == null) {
-                    p.sendMessage(ChatColor.RED + "Неверный эффект! Доступны: SPEED, STRENGTH, REGENERATION, NIGHT_VISION, JUMP, FIRE_RESISTANCE");
-                    return true;
-                }
-                
-                List<PotionEffect> effects = new ArrayList<>();
-                effects.add(new PotionEffect(type, Integer.MAX_VALUE, level, true, false));
-                
-                saveTalisman(id, name, material, id, effects);
-                p.sendMessage(ChatColor.GREEN + "Талисман " + id + " создан!");
                 return true;
             }
             
@@ -97,7 +103,7 @@ public class Main extends JavaPlugin implements Listener {
                 Player target = getServer().getPlayer(args[2]);
                 
                 if (!talismans.containsKey(id)) {
-                    p.sendMessage(ChatColor.RED + "Талисман не найден!");
+                    p.sendMessage(ChatColor.RED + "Талисман не найден! Используй /talisman list");
                     return true;
                 }
                 
@@ -107,11 +113,11 @@ public class Main extends JavaPlugin implements Listener {
                 }
                 
                 giveTalisman(target, id);
-                p.sendMessage(ChatColor.GREEN + "Талисман выдан игроку " + target.getName());
+                p.sendMessage(ChatColor.GREEN + "✓ Талисман выдан игроку " + target.getName());
                 return true;
             }
             
-            p.sendMessage(ChatColor.RED + "Неверная команда! Используй /talisman");
+            sendHelp(p);
             return true;
         });
         
@@ -119,6 +125,15 @@ public class Main extends JavaPlugin implements Listener {
         getLogger().info("TalismansPlugin v1.0 ВКЛЮЧЕН!");
         getLogger().info("Команда: /talisman");
         getLogger().info("=====================================");
+    }
+    
+    private void sendHelp(Player p) {
+        p.sendMessage(ChatColor.YELLOW + "=== TalismansPlugin ===");
+        p.sendMessage(ChatColor.GRAY + "/talisman create <id> <название> <материал> <эффект> <уровень>");
+        p.sendMessage(ChatColor.GRAY + "/talisman give <id> <игрок>");
+        p.sendMessage(ChatColor.GRAY + "/talisman list");
+        p.sendMessage(ChatColor.GRAY + "Пример: /talisman create speed &aСкорость DIAMOND SPEED 2");
+        p.sendMessage(ChatColor.GRAY + "Эффекты: SPEED, STRENGTH, REGENERATION, JUMP, NIGHT_VISION");
     }
     
     @Override
@@ -201,7 +216,9 @@ public class Main extends JavaPlugin implements Listener {
         List<String> lore = new ArrayList<>();
         lore.add(data.lore);
         for (PotionEffect effect : data.effects) {
-            lore.add(ChatColor.GRAY + "Эффект: " + effect.getType().getName() + " " + (effect.getAmplifier() + 1));
+            String effectName = effect.getType().getName();
+            int level = effect.getAmplifier() + 1;
+            lore.add(ChatColor.GRAY + "Эффект: " + effectName + " " + level);
         }
         meta.setLore(lore);
         item.setItemMeta(meta);
